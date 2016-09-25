@@ -7,10 +7,11 @@
 		<title>reveal.js</title>
 
 		<link rel="stylesheet" href="css/reveal.css">
-		<link rel="stylesheet" href="css/theme/black.css">
+		<!--<link rel="stylesheet" href="css/theme/black.css">-->
+		<link rel="stylesheet" href="css/theme/sky.css">
 
 		<!-- Theme used for syntax highlighting of code -->
-		<link rel="stylesheet" href="lib/css/zenburn.css">
+		<link rel="stylesheet" href="lib/css/ir-black.css">
 
 		<!-- Printing and PDF exports -->
 		<script>
@@ -24,8 +25,417 @@
 	<body>
 		<div class="reveal">
 			<div class="slides">
-				<section>Slide 1</section>
-				<section>Slide 2</section>
+				<section id="title-page">
+					<h2>SQL Injection:<br>
+						Attacks and Defenses</h2>
+					<h4>Rui Zhao, Chuan Yue, and Bernardo Trindade</h4>
+					<br>
+					<!--CSM Logo -->
+					<img src="images/mines_logo.jpg" width="75%" height="75%">
+					<br>
+					<small>Presentation made using <a href="http://lab.hakim.se/reveal-js/#/">reveal.js</a></small>
+				</section>
+				<section id="about">
+					<section id="about-title">
+						<h1>About Us</h1>
+					</section>
+					<section id="nsf-overview">
+						<h3>Vision: Security-integrated CS Education</h3>
+						<ul>
+							<li>Integrate cybersecurity topics into CS courses</li>
+							<ul>
+							<li>CS students have no way to escape cybersecurity education</li>
+							<li>CS students understand the correlation and interplay between cybersecurity and 
+								other sub-areas of CS
+							</li>
+							<li>Job, career, etc.</li>
+							</ul>
+							<li>Evaluate the teaching and learning effectiveness</li>
+							<li>Promote the adoption of this approach</li>
+						</ul>
+
+						<!-- NSF Logo here -->
+						<img src="images/nsf_logo.png">
+						<small>
+							This activity is supported by the National Science Foundation under Grant no. 
+							1619841
+						</small>
+					</section>
+					<section id="about-me">
+						<h2>About Me</h2>
+						<!-- come back to this later -->
+						<ul>
+						<table align="left" width=290>
+							<tr><td>
+								<img src="images/profile_pic.jpg" align="left" hspace=200 width=200 
+					  height=200>
+							</td></tr>
+						</table>
+							<li>Graduated from Mines May 2016 with B.S. Computer Science and ASI in Mechanical 
+								Engineering</li>
+							<li>Did security research here at Mines with Dr. Chuan Yue</li>
+							<li>Went to DEFCON 24 this year</li>
+							<li>I take and help set up courses for Software Freedom School</li>
+						</ul>
+						<strong>Handle:</strong> fudog931
+					</section>
+				</section>
+				<section id="intro-to-sqli">
+					<section>
+						<h2><a
+							href="http://bradblog.com/Docs/FBI_Flash_CyberDivision_boe_flash_aug_2016_final.pdf">SQL
+							Injection</a></h2>
+					</section>
+					<section id="sqli-overview">
+					<h2>What is SQL Injection</h2>
+					<ul>
+						<li class="fragment">A type of injection attack</li>
+						<ul>
+							<li class="fragment">SQL commands are injected as user input in order to affect the 
+								execution of predefined SQL commands</li>
+						</ul>
+						<li class="fragment">Occurs when:</li>
+						<ul>
+							<li class="fragment">data comes from an untrusted source</li>
+							<li class="fragment">data is used to dynamically construct a SQL query</li>
+						</ul>
+						<li class="fragment">
+							<a href="https://www.owasp.org/index.php/SQL_Injection">
+								https://www.owasp.org/index.php/SQL_Injection
+							</a>
+						</li>
+					</ul>
+					</section>
+					<section id="sqli-fallout">
+						<h2>Consequences</h2>
+						<p>If an attacker exploits this vulnerability they can:</p>
+						<ul>
+							<li class="fragment">Drop data from the database</li>
+							<li class="fragment">Change or insert data</li>
+							<li class="fragment">Dump potentially sensitive data</li>
+							<li class="fragment">Own the database</li>
+						</ul><br>
+						<p class="fragment">In special cases an attacker can use the database to take over the 
+						entire computer</p>
+						<p class="fragment">Rated #1 of
+						<a href="https://www.owasp.org/index.php/Top_10_2013-A1-Injection">
+							OWASP top 10 Vulnerabilities in 2013
+						</a></p>
+					</section>
+				</section>
+				<section id="sqli-mechanics">
+					<section id="sqli-background">
+						<h2>How does it work?</h2>
+						A webserver will handle a form with code like this:
+						<pre><code class="php" data-trim>
+// $conn will be the variable the holds our connection to our database
+
+$string = $_POST['product_string'];
+$query = "SELECT id FROM products WHERE name='$string'";
+
+$result = odbc_exec($conn, $query);
+						</code></pre>
+					</section>
+					<section id="sqli-submit1">
+						If I submit <code data-trim>[My Cool Product]</code> on the form, this is how it gets 
+						processed:
+						<pre class="fragment"><code class="php" data-trim>
+$string = "My Cool Product";
+$query = "SELECT id FROM products WHERE name='My Cool Product'";
+						</code></pre>
+					</section>
+					<section id="sqli-submit2">
+						But what if I submit <code data-trim>['My Cool Product]</code>?
+						Then we get interesting effects
+						<pre class="fragment"><code class="php" data-trim>
+$string = "'My Cool Product";
+$query = "SELECT id FROM products WHERE name=''My Cool Product'";
+
+//Syntax or Command not found error depending on the server config
+						</code></pre>
+					</section>
+					<section id="sqli-submit3">
+						<p>
+						Because the user input gets interpolated to make a query string, instead of this:
+						<pre class="fragment"><code class="sql" data-trim>
+SELECT id
+FROM products
+WHERE
+	name = 'My Cool Product';
+						</code></pre></p>
+						<p class="fragment">the server receives this:
+						<pre class="fragment"><code class="sql" data-trim>
+SELECT id
+FROM products
+WHERE
+	name = ''
+My Cool Product';
+						</code></pre></p>
+						<p class="fragment">This weird behavior is used to inject extra SQL commands into the 
+						query</p>
+					</section>
+				</section>
+				<section id="demo">
+					<section>
+						<h3>Let's hack something!</h3>
+						<!-- Elliot from Mr. Robot -->
+						<img src="images/hackerman_elliot.jpg">
+					</section>
+					<section>
+						<h3>References</h3>
+						<ul>
+							<li>Attacker VM: <a href="https://www.kali.org/downloads/">Kali 2.0 LXDE</a></li>
+							<li>Target VM: <a href="https://www.vulnhub.com/entry/de-ice-s1120,10/">
+								Vulnhub Image: De-ICE: S1.120</a></li>
+						</ul>
+					</section>
+				</section>
+				<section id="defense">
+					<section id="defense-title">
+					<h1>Defense</h1>
+					</section>
+					<section id="general-defense">
+						<h3>General Recommendations</h3>
+						<ul>
+							<li>Avoid the interpreter entirely</li>
+							<li>Use an interface that supports bind variables (we'll go over some options)</li>
+							<li>Encode all user input before passing it to an interpreter</li>
+							<ul>
+								<li class="fragment highlight-red">scrub your input </li>
+							</ul>
+							<li>Maintain a "white list" of allowed SQL statements</li>
+							<li>Minimize privileges</li>
+						</ul>
+						<br>
+						Check out resources like the
+						<a href="https://www.owasp.org/index.php/SQL_Injection_Prevention_Cheat_Sheet">OWASP SQL 
+							Injection Cheat Sheet</a>
+					</section>
+					<section id="defense-techniques">
+						<h2>Bind Variables</h2>
+						<p>The goal is to design your web server so that if you get malicious input, it doesn't 
+						affect the rest of your logic. A few strategies you can use:
+						</p><ul>
+							<li><a href="#/prepared-statements">Prepared Statements</a></li>
+							<li><a href="#/stored-procedures">Stored Procedures</a></li>
+							<li><a href="#/scrub-input">User Input Escaping</a></li>
+						</ul>
+					</section>
+					<section id="prepared-statements">
+						<h2>Prepared Statements</h2>
+						Instead of dynamically creating a statement based on the user's input, we can use objects 
+						that maintain a strict separation between <em>code</em> and <em>data</em>
+
+						<pre><code class="java">
+String query = "SELECT account_balance FROM user_data WHERE user_name = ?";
+
+PreparedStatement pstmt = connection.prepareStatement(query);
+
+String custname = request.getParameter("customerName")
+
+pstmt.setString(1, custname);
+
+ResultSet results = pstmt.executeQuery();
+						</code></pre>
+					</section>
+					<section id="stored-procedures">
+						<h2>Stored Procedures</h2>
+						SQL code is defined and stored in the database itself and then called from the application
+						<pre><code class="java">
+String custname = request.getParameter("customerName");
+
+CallableStatement cs = connection.prepareCall("{call sp_getAccountBalance(?)}");
+
+cs.setString(1, custname);
+
+						</code></pre>
+					</section>
+					<section id="scrub-input">
+						<h2>Escaping User Input</h2>
+						The goal is you escape or remove characters from the user that could be used for SQL 
+						Injection.<br><br>
+						This is <strong>NOT</strong> guaranteed to prevent SQLI. This is a mitigation technique that 
+						will force attackers to be more creative.<br>
+					</section>
+					<section id="scrub-example">
+						An example using OWASP ESAPI (Escaping All User Supplied Input) library:
+						<pre><code class="java">
+Codec ORACLE_CODEC = new OracleCodec();
+
+String uid = ESAPI.encoder().encodeForSQL(ORACLE_CODEC, req.getParameter("userID"));
+String pass = ESAPI.encoder().encodeForSQL(ORACLE_CODEC, req.getParameter("password"));
+String query = "SELECT user_id FROM user_data WHERE user_name = '" + uid + "' and user_password = '" + pass +"'";
+						</code></pre>
+					</section>
+				</section>
+				<section id="research">
+					<section id="research-overview">
+						<h2>Interesting Research</h2>
+						<ul>
+							<li><a href="#/amnesia">"AMNESIA: Analysis and Monitoring for NEutralizing SQL 
+									Injection Attacks", <em>ASE</em>, <em>2005</em><br>William G. J.  
+									Halfond, Alessandro Orso</a></li>
+							<li><a href="#/model-checking">"Automatic Generation of XSS and SQL Injection 
+									Attacks with Goal-Directed Model Checking", <em>USENIX Security 
+										Symposium</em>, <em>2008</em><br>Michael Martin, Monica S. 
+									Lam</a></li>
+							<li><a href="#/mutation">"Automated Testing for SQL Injection Vulnerabilities: An 
+									Input Mutation Approach", <em>ISSTA</em>, <em>2014</em><br>Dennis 
+									Appelt, Cu Duy Nguyen, Lionel C. Briand, Nadia Alshahwan</a></li>
+						</ul>
+					</section>
+					<section id="amnesia">
+						<h3><a href="http://www.cc.gatech.edu/fac/Alex.Orso/papers/halfond.orso.ASE05.pdf">
+								AMNESIA
+							</a></h3>
+						<ul>
+							<li>Static analysis to automatically build a model of legitimate queries the 
+								application could generate</li>
+							<li>Dynamic analysis to monitor generated queries at runtime and checks them for 
+								compliance with the model</li>
+							<li>Any queries that violate the model are classified as illegal and blocked before 
+								being executed
+						</ul>
+					</section>
+					<section id="amnesia-drawing">
+						<!-- add drawing for AMNESIA -->
+						<img src="images/amnesia_diagram.png" width="75%">
+					</section>
+					<section id="model-checking">
+						<h3><a href="https://www.usenix.org/legacy/event/sec08/tech/full_papers/martin/martin_html/">
+								Automatic Generation of SQL Injection Attacks Using Model Checking</a></h3>
+						This uses a goal-directed model-checking system to automatically generate attacks exploiting 
+						taint-based vulnerabilities in large Java web applications
+						<br><br>
+						Model checking: given a model of a system, exhaustively and automatically check whether this 
+						model meets a given specification.
+					</section>
+					<section id="taint-vulns">
+						SQL Injection and XSS are both <em>taint vulnerabilites</em>
+						<ul>
+							<li>untrusted data from the user is tracked as it flows through the system</li>
+							<li>if it flows into a secure "zone" of the model where it could exploit something 
+								the vulnerability gets flagged</li>
+						</ul>
+						<br>We need to analyze more than just individual requests. We can instead analyze the 
+						information flow of our application to find all the vulnerabilities in our application.
+					</section>
+					<section id="taint-vuln-desc">
+						<table style="width:100">
+							<tr>
+							<td>
+								<ul>
+									<li>
+										Write a PQL query specifying the vulnerability
+									</li>
+									<li>
+										PQL is used to instrument the application along with trace 
+										tainted input
+									</li>
+									<li>
+										Application is fed to model checker along with simulation of 
+										production environment
+									</li>
+									<li>
+										Results of model checking and taint tracking returns a list 
+										of attack paths
+									</li>
+								</ul>
+							</td>
+							<td>
+								<a href="#/taint-vuln-image"><img 
+									data-src="images/auto_xss_diagram.png"></a>
+							</td>
+							</tr>
+						</table>
+					</section>
+					<section id="taint-vuln-image">
+						<img data-src="images/auto_xss_diagram.png">
+					</section>
+					<section id="mutation">
+						<h3><a href="http://dl.acm.org/citation.cfm?id=2610403">
+								Generating Attacks Using Mutation
+							</a></h3>
+						A black box approach to testing an application for SQLI.
+						<br><br>
+						Start with a string for SQL Injection and begin changing, or mutating, it to generate a new 
+						string that will get through security filters.
+					</section>
+					<section id="mutation-overview">
+						<img data-src="images/auto_sqli_gen_diagram.png">
+						<ul>
+							<li>Start with malicious input and mutate it to generate new test strings</li>
+							<li>Monitor code listens at the proxy level before the query is executed to see 
+								which queries got through</li>
+						</ul>
+					</section>
+					<section id="mutation-descriptions">
+						<h3>Mutation Operations</h3>
+						<ul>
+							<li>Behavior Changing Operations</li>
+							<ul>
+								<li>Add an OR to the input. Ex: <code>"OR 1=1"</code></li>
+								<li>Add an AND clause. Ex: <code>"AND 1=2"</code></li>
+								<li>Add a semicolon and an additional SQL statement. Ex: <code>"; SELECT 
+										wait-for(5) FROM dual"</code></li>
+							</ul>
+						</ul>
+					</section>
+					<section>
+						<h3>Mutation Operations</h3>
+						<ul>
+							<li>Syntax Repairing Operations</li>
+							<ul>
+								<li>Add a closing parenthesis Ex: <code>"WHERE char=CHR(67) OR 1=1 
+										)"</code></li>
+								<li>Add a comment. Ex: <code>"WHERE char=CHR(67) OR 1=1 #)"</code></li>
+								<li>Add a quotation character. Ex: <code>"id='' OR 1=1"</code></li>
+							</ul>
+						</ul>
+					</section>
+					<section>
+						<h3>Mutation Operations</h3>
+						<ul>
+							<li>Obfuscation Operations</li>
+							<ul>
+								<li>Replaces whitespace with an equivalent character. Ex: T
+									<code>"id=3+OR+1=1"</code></li>
+								<li>Replaces a character value with an ASCII representation. Ex: 
+									<code>"'a'=x'61'"</code></li>
+								<li>Replace characters with their HTML encoded values. Ex: <code>"OR 
+										&amp;quot;a&amp;quot;=&amp;quot;a&amp;quot;"</code></li>
+								<li>Replaces a character with their percent encoding. Ex: 
+									<code>"id=3 OR%201=1"</code></li>
+								<li>Replaces a boolean with an equivalient expression. Ex: 
+									<code>"1=1"</code> becomes <code>"NOT false=!!1"</code></li>
+							</ul>
+						</ul>
+					</section>
+					<section>
+						<ul>
+							<li>Obfuscate SQL keywords</li>
+							<ul>
+								<li>Randomly change the case of letters in keyword. Ex: <code>"1' oR 
+										1=1"</code></li>
+								<li>Adding comments in the middle of keywords. Ex: <code>"1' O/* random 
+										comment */R 1=1"</code></li>
+								<li>Replacing a keyword with an alternative representation Ex: <code>"1' || 
+										1=1"</code></li>
+							</ul>
+						</ul>
+					</section>
+					<section>
+						<h3>Fuzzy Computing</h3>
+						This is a great example of fuzzy computing. These mutation operators have rules for when 
+						they are applied, but the programmer has no idea what statements will be generated. This 
+						method allows for testing with crazy strings a human would have a hard time finding to 
+						ensure your website can defend against these techniques.
+					</section>
+				</section>
+				<section>
+					<h2>The End</h2>
+					<img href="http://xkcd.com/327/" src="images/exploits_of_a_mom.png" width="100%" height="100%">
+					<br><small>http://xkcd.com/327/</small>
 			</div>
 		</div>
 
